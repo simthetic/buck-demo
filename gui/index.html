@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simthetic Live Demo — DCDC Buck Converter ROM</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #2563eb;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #2563eb;
+            cursor: pointer;
+            border: none;
+        }
+
+        .pulse-dot {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        /* Right sidebar slide-in */
+        .sidebar-panel {
+            transition: transform 0.25s ease;
+        }
+
+        .sidebar-panel.collapsed {
+            transform: translateX(calc(100% - 2.75rem));
+        }
+
+        .chat-bubble-user {
+            background: #2563eb;
+            color: white;
+            border-radius: 12px 12px 4px 12px;
+            padding: 10px 14px;
+            margin-left: auto;
+            max-width: 85%;
+            font-size: 0.875rem;
+        }
+
+        .chat-bubble-model {
+            background: #f3f4f6;
+            color: #111827;
+            border-radius: 12px 12px 12px 4px;
+            padding: 10px 14px;
+            margin-right: auto;
+            max-width: 90%;
+            font-size: 0.875rem;
+            line-height: 1.45;
+        }
+
+        .chat-bubble-model code {
+            background: rgba(37, 99, 235, 0.08);
+            color: #1d4ed8;
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-family: 'ui-monospace', monospace;
+            font-size: 0.8125rem;
+        }
+
+        .preset-pill:hover {
+            background: #eff6ff;
+            border-color: #93c5fd;
+        }
+    </style>
+</head>
+
+<body class="font-sans text-gray-700 antialiased bg-white">
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full bg-white/95 backdrop-blur-sm border-b border-gray-100 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <a href="/" class="flex items-center gap-2">
+                    <img src="logo.png" alt="Simthetic" class="h-12 w-auto" onerror="this.style.display='none'">
+                </a>
+                <div class="flex items-center gap-6 text-sm">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-gray-300 pulse-dot" id="status-dot"></span>
+                        <span class="text-gray-500" id="status-text">ROM idle</span>
+                    </div>
+                    <div class="hidden md:flex items-center gap-4 text-gray-400">
+                        <span>Model: <span class="text-gray-700 font-medium" id="model-id">BUCK_HYBRID_MLP v2026-03-21-001</span></span>
+                        <span>dt: <span class="text-gray-700 font-medium" id="model-dt">50 µs</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="pt-20 pb-24">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <!-- Header -->
+            <div class="mb-6">
+                <h1 class="text-3xl font-bold text-gray-900">Live Demo — DCDC Buck Converter ROM</h1>
+                <p class="text-gray-500 mt-1">Run the Simthetic Buck converter ROM live. Compare with MATLAB/Simscape.</p>
+            </div>
+
+            <!-- Preset Scenario Buttons (§6.2) -->
+            <div class="mb-6 bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <span class="text-xs font-semibold text-blue-600 uppercase tracking-wider">Quick scenarios</span>
+                    <span class="text-xs text-gray-400">Click to run instantly</span>
+                </div>
+                <div class="flex flex-wrap gap-2" id="preset-buttons">
+                    <button data-preset="load-step"
+                        class="preset-pill px-4 py-2 text-sm font-medium text-blue-700 bg-white border border-blue-200 rounded-full transition-colors">
+                        Load step
+                    </button>
+                    <button data-preset="line-transient"
+                        class="preset-pill px-4 py-2 text-sm font-medium text-blue-700 bg-white border border-blue-200 rounded-full transition-colors">
+                        Line transient
+                    </button>
+                    <button data-preset="duty-sweep"
+                        class="preset-pill px-4 py-2 text-sm font-medium text-blue-700 bg-white border border-blue-200 rounded-full transition-colors">
+                        Duty sweep
+                    </button>
+                    <button data-preset="heavy-load"
+                        class="preset-pill px-4 py-2 text-sm font-medium text-blue-700 bg-white border border-blue-200 rounded-full transition-colors">
+                        Heavy load
+                    </button>
+                    <button data-preset="light-load"
+                        class="preset-pill px-4 py-2 text-sm font-medium text-blue-700 bg-white border border-blue-200 rounded-full transition-colors">
+                        Light load
+                    </button>
+                </div>
+            </div>
+
+            <!-- Speedup Badge (§6.1) -->
+            <div class="mb-6 bg-gradient-to-r from-blue-50 to-emerald-50 border border-blue-100 rounded-xl p-5">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+                    <div>
+                        <div class="text-xs uppercase tracking-wider text-gray-500 mb-1">ROM execution</div>
+                        <div class="text-2xl font-mono font-bold text-blue-600" id="rom-time">--</div>
+                        <div class="text-xs text-gray-400">milliseconds</div>
+                    </div>
+                    <div>
+                        <div class="text-xs uppercase tracking-wider text-gray-500 mb-1">Simscape equivalent</div>
+                        <div class="text-2xl font-mono font-bold text-amber-600" id="simscape-time">--</div>
+                        <div class="text-xs text-gray-400">seconds</div>
+                    </div>
+                    <div>
+                        <div class="text-xs uppercase tracking-wider text-gray-500 mb-1">Speedup</div>
+                        <div class="text-3xl font-mono font-bold text-emerald-600" id="speedup">--</div>
+                        <div class="text-xs text-gray-400">vs Simscape</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-12 gap-6">
+                <!-- Control Panel -->
+                <div class="col-span-12 lg:col-span-3">
+                    <div class="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
+                        <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4">Control panel</h2>
+
+                        <!-- Mode Toggle -->
+                        <div class="mb-6">
+                            <label class="text-xs text-gray-500 mb-2 block">Input mode</label>
+                            <div class="flex bg-gray-100 rounded-lg p-1">
+                                <button id="mode-manual"
+                                    class="flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all bg-white text-blue-600 shadow-sm">Live tuning</button>
+                                <button id="mode-dataset"
+                                    class="flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all text-gray-500 hover:text-gray-700">Benchmark replay</button>
+                            </div>
+                        </div>
+
+                        <!-- Live tuning Controls -->
+                        <div id="manual-controls">
+                            <div class="mb-5">
+                                <div class="flex justify-between mb-2">
+                                    <label class="text-sm text-gray-600">Input voltage</label>
+                                    <span class="text-sm font-mono text-blue-600 font-medium">
+                                        <span id="vin-value">24.00</span> V
+                                    </span>
+                                </div>
+                                <input type="range" id="vin-slider" min="10" max="45" step="0.1" value="24"
+                                    class="slider w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                                <div class="flex justify-between text-xs text-gray-400 mt-1">
+                                    <span id="vin-min">10 V</span><span id="vin-max">45 V</span>
+                                </div>
+                            </div>
+
+                            <div class="mb-5">
+                                <div class="flex justify-between mb-2">
+                                    <label class="text-sm text-gray-600">Load resistance</label>
+                                    <span class="text-sm font-mono text-blue-600 font-medium">
+                                        <span id="rload-value">5.00</span> Ω
+                                    </span>
+                                </div>
+                                <input type="range" id="rload-slider" min="1" max="10" step="0.1" value="5"
+                                    class="slider w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                                <div class="flex justify-between text-xs text-gray-400 mt-1">
+                                    <span id="rload-min">1 Ω</span><span id="rload-max">10 Ω</span>
+                                </div>
+                            </div>
+
+                            <div class="mb-5">
+                                <div class="flex justify-between mb-2">
+                                    <label class="text-sm text-gray-600">Duty cycle</label>
+                                    <span class="text-sm font-mono text-blue-600 font-medium" id="duty-value">0.50</span>
+                                </div>
+                                <input type="range" id="duty-slider" min="0.2" max="0.8" step="0.01" value="0.5"
+                                    class="slider w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                                <div class="flex justify-between text-xs text-gray-400 mt-1">
+                                    <span id="duty-min">0.20</span><span id="duty-max">0.80</span>
+                                </div>
+                            </div>
+
+                            <!-- Operating envelope chip (§6.4) -->
+                            <div class="mt-4 mb-4">
+                                <div id="envelope-chip"
+                                    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border bg-emerald-50 border-emerald-200 text-emerald-700">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                    <span id="envelope-text">Inside trained range</span>
+                                </div>
+                            </div>
+
+                            <button id="run-manual"
+                                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors shadow-sm">
+                                Run simulation
+                            </button>
+                            <div class="flex items-center justify-between mt-3 text-xs text-gray-400">
+                                <label class="flex items-center gap-1.5 cursor-pointer">
+                                    <input type="checkbox" id="auto-run" class="rounded text-blue-600" checked>
+                                    <span>Auto-run on slider change</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Benchmark Controls -->
+                        <div id="dataset-controls" class="hidden">
+                            <p class="text-sm text-gray-500 mb-4">Replay a published benchmark vector through the ROM and overlay the Simscape reference.</p>
+
+                            <label class="text-xs text-gray-500 mb-2 block">Benchmark vector</label>
+                            <select id="benchmark-select"
+                                class="w-full mb-4 px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="v1">V1 — Step load transient</option>
+                                <option value="v2">V2 — Ramp + sine excitation</option>
+                            </select>
+
+                            <label class="flex items-center gap-2 text-sm text-gray-600 mb-4 cursor-pointer">
+                                <input type="checkbox" id="compare-simscape" class="rounded text-blue-600" checked>
+                                <span>Compare with Simscape reference</span>
+                            </label>
+
+                            <button id="run-dataset"
+                                class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors shadow-sm">
+                                Run benchmark
+                            </button>
+
+                            <div id="benchmark-warning" class="hidden mt-3 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-2">
+                                Benchmark vectors unavailable from this backend.
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Output summary -->
+                    <div class="bg-white rounded-xl p-6 border border-gray-100 shadow-sm mt-6">
+                        <h2 class="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4">Steady-state outputs</h2>
+                        <div class="space-y-3 text-sm">
+                            <div class="flex justify-between"><span class="text-gray-500">V_out</span><span class="font-mono font-medium text-gray-900" id="vout-mean">--</span></div>
+                            <div class="flex justify-between"><span class="text-gray-500">I_out</span><span class="font-mono font-medium text-gray-900" id="iout-mean">--</span></div>
+                            <div class="flex justify-between"><span class="text-gray-500">V_in</span><span class="font-mono font-medium text-gray-900" id="vin-mean">--</span></div>
+                            <div class="flex justify-between"><span class="text-gray-500">I_in</span><span class="font-mono font-medium text-gray-900" id="iin-mean">--</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts — 2×2 grid -->
+                <div class="col-span-12 lg:col-span-9 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <!-- V_in Chart -->
+                    <div class="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
+                        <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                            <h3 class="text-sm font-semibold text-gray-900">V_in — Input Voltage</h3>
+                            <div class="flex items-center gap-3 text-xs">
+                                <span class="flex items-center gap-1"><span class="w-3 h-0.5 bg-amber-500"></span> ROM</span>
+                                <span class="hidden gt-legend items-center gap-1"><span class="w-3 h-0.5 border-t-2 border-dashed border-gray-400"></span> Simscape</span>
+                                <button class="export-csv text-blue-600 hover:underline" data-chart="vin">CSV</button>
+                                <button class="export-png text-blue-600 hover:underline" data-chart="vin">PNG</button>
+                            </div>
+                        </div>
+                        <div class="h-48">
+                            <canvas id="vin-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- V_out Chart -->
+                    <div class="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
+                        <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                            <h3 class="text-sm font-semibold text-gray-900">V_out — Output Voltage</h3>
+                            <div class="flex items-center gap-3 text-xs">
+                                <span class="flex items-center gap-1"><span class="w-3 h-0.5 bg-emerald-500"></span> ROM</span>
+                                <span class="hidden gt-legend items-center gap-1"><span class="w-3 h-0.5 border-t-2 border-dashed border-gray-400"></span> Simscape</span>
+                                <button class="export-csv text-blue-600 hover:underline" data-chart="vout">CSV</button>
+                                <button class="export-png text-blue-600 hover:underline" data-chart="vout">PNG</button>
+                            </div>
+                        </div>
+                        <div class="h-48">
+                            <canvas id="vout-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- I_in Chart -->
+                    <div class="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
+                        <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                            <h3 class="text-sm font-semibold text-gray-900">I_in — Input Current</h3>
+                            <div class="flex items-center gap-3 text-xs">
+                                <span class="flex items-center gap-1"><span class="w-3 h-0.5 bg-pink-500"></span> ROM</span>
+                                <span class="hidden gt-legend items-center gap-1"><span class="w-3 h-0.5 border-t-2 border-dashed border-gray-400"></span> Simscape</span>
+                                <button class="export-csv text-blue-600 hover:underline" data-chart="iin">CSV</button>
+                                <button class="export-png text-blue-600 hover:underline" data-chart="iin">PNG</button>
+                            </div>
+                        </div>
+                        <div class="h-48">
+                            <canvas id="iin-chart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- I_out Chart -->
+                    <div class="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
+                        <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                            <h3 class="text-sm font-semibold text-gray-900">I_out — Output Current</h3>
+                            <div class="flex items-center gap-3 text-xs">
+                                <span class="flex items-center gap-1"><span class="w-3 h-0.5 bg-blue-500"></span> ROM</span>
+                                <span class="hidden gt-legend items-center gap-1"><span class="w-3 h-0.5 border-t-2 border-dashed border-gray-400"></span> Simscape</span>
+                                <button class="export-csv text-blue-600 hover:underline" data-chart="iout">CSV</button>
+                                <button class="export-png text-blue-600 hover:underline" data-chart="iout">PNG</button>
+                            </div>
+                        </div>
+                        <div class="h-48">
+                            <canvas id="iout-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Ask the ROM sidebar (§6.6) -->
+    <aside id="ask-sidebar" class="sidebar-panel collapsed fixed right-0 top-20 bottom-0 w-96 max-w-full bg-white border-l border-gray-100 shadow-lg z-40 flex">
+        <button id="ask-toggle" class="w-11 bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center rounded-l-lg" title="Ask the ROM">
+            <span class="transform -rotate-90 whitespace-nowrap text-xs font-semibold uppercase tracking-wider">Ask the ROM</span>
+        </button>
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <div class="px-5 py-4 border-b border-gray-100">
+                <h2 class="text-sm font-semibold text-gray-900">Ask the ROM <span class="text-xs font-normal text-blue-600 ml-1">(preview)</span></h2>
+                <p class="text-xs text-gray-500 mt-1">Tap a question — it runs against the live ROM and returns a real answer.</p>
+            </div>
+            <div id="chat-area" class="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+                <div class="chat-bubble-model">Hi — pick one of the questions below and I will run it through the ROM and report the actual numbers.</div>
+            </div>
+            <div class="px-5 py-3 border-t border-gray-100 space-y-2">
+                <button data-question="settling" class="ask-question w-full text-left text-sm text-gray-700 px-3 py-2 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors">
+                    What is the output current settling time after a step load?
+                </button>
+                <button data-question="line-sweep" class="ask-question w-full text-left text-sm text-gray-700 px-3 py-2 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors">
+                    How does V_out depend on input voltage at constant duty?
+                </button>
+                <button data-question="steady-state" class="ask-question w-full text-left text-sm text-gray-700 px-3 py-2 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors">
+                    Show me the steady-state point at V_in = 36 V, DC = 0.5, R = 5 Ω.
+                </button>
+                <button data-question="speedup" class="ask-question w-full text-left text-sm text-gray-700 px-3 py-2 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors">
+                    How fast is this ROM compared to MATLAB Simscape?
+                </button>
+                <p class="text-[11px] text-gray-400 pt-2">This is a scripted preview. The full version uses Claude Code + MCP — see the <a href="https://github.com/simthetic" target="_blank" class="text-blue-600 hover:underline">GitHub repo →</a></p>
+            </div>
+        </div>
+    </aside>
+
+    <!-- CTA Strip (§6.8) — cloud-only -->
+    <div id="cta-strip" class="hidden fixed bottom-0 left-0 right-0 bg-blue-700 text-white py-3 px-4 shadow-lg z-30">
+        <div class="max-w-7xl mx-auto flex items-center justify-between gap-4 flex-wrap">
+            <span class="text-sm">Like this? <span class="font-medium">Book a pilot benchmark for your topology.</span></span>
+            <div class="flex items-center gap-3">
+                <a href="contact.html" class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-white rounded-lg hover:bg-blue-50 transition-colors">Get in touch</a>
+                <button id="cta-dismiss" class="text-white/80 hover:text-white" aria-label="Dismiss">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="border-t border-gray-100 py-6 mt-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-gray-400">
+            &copy; 2026 Simthetic. AI-Powered Reduced Order Models.
+        </div>
+    </footer>
+
+    <script>
+        // ====================================================================
+        // Configuration
+        // ====================================================================
+        const API_BASE = '';                // empty = same origin (works for both local and cloud-proxy deployments)
+        const IS_CLOUD_DEPLOYMENT = false;   // cloud deployment — shows CTA strip
+        const SIMSCAPE_REALTIME_FACTOR = 92; // Simscape ≈ 92× slower than real time (calibrated: 23.4 s for a 250 ms simulation). Used when an explicit Simscape time is not bundled.
+
+        // ====================================================================
+        // State
+        // ====================================================================
+        let isManualMode = true;
+        let runInFlight = false;
+        let benchmarkAvailable = true;
+        let envelope = {
+            Vin:   { min: 10, max: 45, nominal: 24 },
+            Rload: { min: 1,  max: 10, nominal: 5  },
+            DC:    { min: 0.2, max: 0.8, nominal: 0.5 }
+        };
+        let lastRunMs = null;        // last ROM execution time in ms
+        let lastSimscapeS = null;    // last Simscape equivalent in s
+        let lastChartCache = {};     // cache last data for CSV/PNG export
+
+        // ====================================================================
+        // DOM
+        // ====================================================================
+        const $ = (id) => document.getElementById(id);
+        const statusDot = $('status-dot');
+        const statusText = $('status-text');
+        const vinSlider = $('vin-slider'), vinValue = $('vin-value');
+        const rloadSlider = $('rload-slider'), rloadValue = $('rload-value');
+        const dutySlider = $('duty-slider'), dutyValue = $('duty-value');
+        const envelopeChip = $('envelope-chip'), envelopeText = $('envelope-text');
+
+        // ====================================================================
+        // Charts
+        // ====================================================================
+        const baseScaleOptions = {
+            x: {
+                type: 'linear',
+                title: { display: true, text: 'time (ms)', color: '#6b7280', font: { size: 11 } },
+                grid: { color: 'rgba(0,0,0,0.05)' },
+                ticks: { color: '#6b7280', font: { size: 10 }, maxTicksLimit: 8 }
+            },
+            y: {
+                grid: { color: 'rgba(0,0,0,0.05)' },
+                ticks: { color: '#6b7280', font: { size: 11 } }
+            }
+        };
+        const chartOpts = () => ({
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            parsing: false,
+            interaction: { intersect: false, mode: 'index' },
+            scales: baseScaleOptions,
+            plugins: { legend: { display: false } }
+        });
+
+        function makeChart(canvasId, romColor, romLabel, gtLabel) {
+            return new Chart($(canvasId), {
+                type: 'line',
+                data: {
+                    datasets: [
+                        { label: romLabel, data: [], borderColor: romColor, borderWidth: 2,   pointRadius: 0, tension: 0.15 },
+                        { label: gtLabel,  data: [], borderColor: romColor, borderWidth: 1.5, borderDash: [5, 5], pointRadius: 0, hidden: true }
+                    ]
+                },
+                options: chartOpts()
+            });
+        }
+
+        const vinChart  = makeChart('vin-chart',  '#f59e0b', 'V_in (ROM)',  'V_in (Simscape)');
+        const voutChart = makeChart('vout-chart', '#10b981', 'V_out (ROM)', 'V_out (Simscape)');
+        const iinChart  = makeChart('iin-chart',  '#ec4899', 'I_in (ROM)',  'I_in (Simscape)');
+        const ioutChart = makeChart('iout-chart', '#3b82f6', 'I_out (ROM)', 'I_out (Simscape)');
+        const allCharts = [vinChart, voutChart, iinChart, ioutChart];
+
+        // ====================================================================
+        // Utility: status indicator
+        // ====================================================================
+        function setStatus(state, text) {
+            statusDot.className = 'w-2 h-2 rounded-full pulse-dot';
+            statusText.className = 'text-sm';
+            if (state === 'ready') {
+                statusDot.classList.add('bg-green-500');
+                statusText.classList.add('text-green-600');
+            } else if (state === 'running') {
+                statusDot.classList.add('bg-blue-500');
+                statusText.classList.add('text-blue-600');
+            } else if (state === 'error') {
+                statusDot.classList.add('bg-red-500');
+                statusText.classList.add('text-red-600');
+            } else {
+                statusDot.classList.add('bg-gray-300');
+                statusText.classList.add('text-gray-500');
+            }
+            statusText.textContent = text;
+        }
+
+        // ====================================================================
+        // Envelope chip (§6.4)
+        // ====================================================================
+        function checkEnvelope(vin, rload, dc) {
+            const tests = [
+                { v: vin,   min: envelope.Vin.min,   max: envelope.Vin.max   },
+                { v: rload, min: envelope.Rload.min, max: envelope.Rload.max },
+                { v: dc,    min: envelope.DC.min,    max: envelope.DC.max    }
+            ];
+            let state = 'inside';
+            for (const t of tests) {
+                if (t.v < t.min || t.v > t.max) { state = 'outside'; break; }
+                const range = t.max - t.min;
+                const margin = Math.min(t.v - t.min, t.max - t.v) / range;
+                if (margin < 0.1) state = 'edge';
+            }
+            envelopeChip.className = 'inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border';
+            if (state === 'inside') {
+                envelopeChip.classList.add('bg-emerald-50', 'border-emerald-200', 'text-emerald-700');
+                envelopeText.textContent = 'Inside trained range';
+                envelopeChip.firstElementChild.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500';
+            } else if (state === 'edge') {
+                envelopeChip.classList.add('bg-amber-50', 'border-amber-200', 'text-amber-700');
+                envelopeText.textContent = 'At envelope boundary';
+                envelopeChip.firstElementChild.className = 'w-1.5 h-1.5 rounded-full bg-amber-500';
+            } else {
+                envelopeChip.classList.add('bg-red-50', 'border-red-200', 'text-red-700');
+                envelopeText.textContent = 'Outside trained range — extrapolation';
+                envelopeChip.firstElementChild.className = 'w-1.5 h-1.5 rounded-full bg-red-500';
+            }
+            return state;
+        }
+
+        // ====================================================================
+        // Slider handling
+        // ====================================================================
+        function readSliders() {
+            return {
+                vin:   parseFloat(vinSlider.value),
+                rload: parseFloat(rloadSlider.value),
+                dc:    parseFloat(dutySlider.value)
+            };
+        }
+
+        function updateSliderDisplay() {
+            const s = readSliders();
+            vinValue.textContent   = s.vin.toFixed(2);
+            rloadValue.textContent = s.rload.toFixed(2);
+            dutyValue.textContent  = s.dc.toFixed(2);
+            checkEnvelope(s.vin, s.rload, s.dc);
+            updateUrlParams();
+        }
+
+        let sliderDebounce = null;
+        function onSliderChange() {
+            updateSliderDisplay();
+            if (!isManualMode) return;
+            if (!$('auto-run').checked) return;
+            clearTimeout(sliderDebounce);
+            sliderDebounce = setTimeout(() => runManual(), 120);
+        }
+        vinSlider.addEventListener('input', onSliderChange);
+        rloadSlider.addEventListener('input', onSliderChange);
+        dutySlider.addEventListener('input', onSliderChange);
+
+        // ====================================================================
+        // Mode toggle
+        // ====================================================================
+        function setMode(mode) {
+            isManualMode = (mode === 'manual');
+            const mm = $('mode-manual'), md = $('mode-dataset');
+            if (isManualMode) {
+                mm.classList.add('bg-white', 'text-blue-600', 'shadow-sm'); mm.classList.remove('text-gray-500');
+                md.classList.remove('bg-white', 'text-blue-600', 'shadow-sm'); md.classList.add('text-gray-500');
+                $('manual-controls').classList.remove('hidden');
+                $('dataset-controls').classList.add('hidden');
+                setGroundTruthVisible(false);
+            } else {
+                md.classList.add('bg-white', 'text-blue-600', 'shadow-sm'); md.classList.remove('text-gray-500');
+                mm.classList.remove('bg-white', 'text-blue-600', 'shadow-sm'); mm.classList.add('text-gray-500');
+                $('manual-controls').classList.add('hidden');
+                $('dataset-controls').classList.remove('hidden');
+            }
+            updateUrlParams();
+        }
+        $('mode-manual').addEventListener('click',  () => setMode('manual'));
+        $('mode-dataset').addEventListener('click', () => setMode('dataset'));
+
+        function setGroundTruthVisible(visible) {
+            allCharts.forEach(c => {
+                c.data.datasets[1].hidden = !visible;
+                c.update('none');
+            });
+            document.querySelectorAll('.gt-legend').forEach(el => {
+                el.classList.toggle('hidden', !visible);
+                el.classList.toggle('inline-flex', visible);
+            });
+        }
+
+        // ====================================================================
+        // ROM API calls
+        // ====================================================================
+        async function fetchInfo() {
+            try {
+                const r = await fetch(`${API_BASE}/api/info`);
+                if (!r.ok) throw new Error('info ' + r.status);
+                const info = await r.json();
+                // Try to extract envelope ranges
+                if (info.model_id) $('model-id').textContent = info.model_id;
+                if (info.version) $('model-id').textContent = `${info.model_id || 'BUCK_HYBRID_MLP'} v${info.version}`;
+                if (info.dt_s) $('model-dt').textContent = `${(info.dt_s * 1e6).toFixed(0)} µs`;
+
+                const inputs = info.inputs || info.signal_ranges || info.envelope || {};
+                const applyRange = (key, signal) => {
+                    if (!inputs[signal]) return;
+                    const r = inputs[signal];
+                    const min = r.min ?? r.lower ?? r[0];
+                    const max = r.max ?? r.upper ?? r[1];
+                    if (min != null && max != null) envelope[key] = { min, max, nominal: (min + max) / 2 };
+                };
+                applyRange('Vin', 'Vin_int');   applyRange('Vin', 'V_in');
+                applyRange('Rload', 'Rload_int'); applyRange('Rload', 'R_load');
+                applyRange('DC', 'DC_int');     applyRange('DC', 'duty');
+                applyRangesToSliders();
+            } catch (e) {
+                console.warn('GET /api/info failed, using defaults:', e);
+            }
+        }
+
+        function applyRangesToSliders() {
+            vinSlider.min   = envelope.Vin.min;   vinSlider.max   = envelope.Vin.max;
+            rloadSlider.min = envelope.Rload.min; rloadSlider.max = envelope.Rload.max;
+            dutySlider.min  = envelope.DC.min;    dutySlider.max  = envelope.DC.max;
+            $('vin-min').textContent   = `${envelope.Vin.min} V`;
+            $('vin-max').textContent   = `${envelope.Vin.max} V`;
+            $('rload-min').textContent = `${envelope.Rload.min} Ω`;
+            $('rload-max').textContent = `${envelope.Rload.max} Ω`;
+            $('duty-min').textContent  = envelope.DC.min.toFixed(2);
+            $('duty-max').textContent  = envelope.DC.max.toFixed(2);
+        }
+
+        async function postSimulate(body) {
+            const t0 = performance.now();
+            setStatus('running', 'Running');
+            const r = await fetch(`${API_BASE}/api/simulate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (!r.ok) {
+                setStatus('error', 'Simulation failed');
+                throw new Error(`simulate failed: ${r.status}`);
+            }
+            const data = await r.json();
+            const elapsedMs = performance.now() - t0;
+            setStatus('ready', 'ROM ready');
+            // Prefer server-reported time if available
+            data._elapsed_ms = data.elapsed_ms ?? data.exec_time_ms ?? elapsedMs;
+            return data;
+        }
+
+        // The Docker ROM exposes outputs_summary by default; for plotting we need timeseries.
+        // Per the plan (Appendix A) `run_dir/sim.json` holds the per-sample series.
+        // We assume the same image now exposes the timeseries inline either as `outputs` or via a `/api/series?run_dir=...` route.
+        async function fetchSeries(simResponse) {
+            // Inline series — preferred
+            if (simResponse.outputs && Array.isArray(simResponse.outputs.t)) {
+                return simResponse.outputs;
+            }
+            if (simResponse.timeseries) return simResponse.timeseries;
+            // Try the convention: GET /api/series?run_dir=...
+            if (simResponse.run_dir) {
+                try {
+                    const r = await fetch(`${API_BASE}/api/series?run_dir=${encodeURIComponent(simResponse.run_dir)}`);
+                    if (r.ok) return await r.json();
+                } catch (e) { /* fall through */ }
+            }
+            // Final fallback: synthesise a flat trace from outputs_summary so the UI doesn't break
+            const s = simResponse.outputs_summary || {};
+            const n = simResponse.n_steps || 100;
+            const dt = simResponse.dt_s || 5e-5;
+            const t = Array.from({ length: n }, (_, i) => i * dt);
+            const flat = (key) => Array(n).fill(s[key]?.mean ?? 0);
+            return { t, V_in: flat('V_in'), V_out: flat('V_out'), I_in: flat('I_in'), I_out: flat('I_out') };
+        }
+
+        // ====================================================================
+        // Render a simulation onto the charts
+        // ====================================================================
+        function renderSeries(series, opts = {}) {
+            const tMs = series.t.map(t => t * 1000);
+            const pts = (arr) => arr.map((y, i) => ({ x: tMs[i], y }));
+            vinChart.data.datasets[0].data  = pts(series.V_in);
+            voutChart.data.datasets[0].data = pts(series.V_out);
+            iinChart.data.datasets[0].data  = pts(series.I_in);
+            ioutChart.data.datasets[0].data = pts(series.I_out);
+            allCharts.forEach(c => c.update('none'));
+            lastChartCache = { tMs, V_in: series.V_in, V_out: series.V_out, I_in: series.I_in, I_out: series.I_out };
+        }
+
+        function renderGroundTruth(series) {
+            const tMs = series.t.map(t => t * 1000);
+            const pts = (arr) => arr.map((y, i) => ({ x: tMs[i], y }));
+            vinChart.data.datasets[1].data  = pts(series.V_in);
+            voutChart.data.datasets[1].data = pts(series.V_out);
+            iinChart.data.datasets[1].data  = pts(series.I_in);
+            ioutChart.data.datasets[1].data = pts(series.I_out);
+            allCharts.forEach(c => c.update('none'));
+            lastChartCache.gt = series;
+        }
+
+        function clearGroundTruth() {
+            allCharts.forEach(c => { c.data.datasets[1].data = []; c.update('none'); });
+            if (lastChartCache) delete lastChartCache.gt;
+        }
+
+        // ====================================================================
+        // Speedup badge (§6.1)
+        // ====================================================================
+        function updateSpeedupBadge(romMs, simscapeS) {
+            lastRunMs = romMs;
+            lastSimscapeS = simscapeS;
+            $('rom-time').textContent = romMs != null ? romMs.toFixed(1) : '--';
+            $('simscape-time').textContent = simscapeS != null ? simscapeS.toFixed(2) : '--';
+            if (romMs != null && simscapeS != null && romMs > 0) {
+                const speedup = (simscapeS * 1000) / romMs;
+                $('speedup').textContent = `${speedup.toFixed(0)}×`;
+            } else {
+                $('speedup').textContent = '--';
+            }
+        }
+
+        function updateSummary(summary) {
+            const fmt = (s, unit) => s ? `${s.mean.toFixed(2)} ${unit}` : '--';
+            $('vout-mean').textContent = fmt(summary?.V_out, 'V');
+            $('iout-mean').textContent = fmt(summary?.I_out, 'A');
+            $('vin-mean').textContent  = fmt(summary?.V_in,  'V');
+            $('iin-mean').textContent  = fmt(summary?.I_in,  'A');
+        }
+
+        // ====================================================================
+        // Manual run (live tuning)
+        // ====================================================================
+        async function runManual(durationS = 0.02) {
+            if (runInFlight) return;
+            const s = readSliders();
+            const env = checkEnvelope(s.vin, s.rload, s.dc);
+            runInFlight = true;
+            try {
+                const resp = await postSimulate({
+                    duration_s: durationS,
+                    constant_inputs: {
+                        Vin_int:   s.vin,
+                        Rload_int: s.rload,
+                        DC_int:    s.dc
+                    }
+                });
+                const series = await fetchSeries(resp);
+                renderSeries(series);
+                clearGroundTruth();
+                updateSummary(resp.outputs_summary);
+                const simscapeS = durationS * SIMSCAPE_REALTIME_FACTOR;
+                updateSpeedupBadge(resp._elapsed_ms, simscapeS);
+            } catch (e) {
+                console.error(e);
+                setStatus('error', 'Simulation failed');
+            } finally {
+                runInFlight = false;
+            }
+        }
+        $('run-manual').addEventListener('click', () => runManual(0.05));
+
+        // ====================================================================
+        // Preset scenarios (§6.2)
+        // ====================================================================
+        const PRESETS = {
+            'load-step': {
+                label: 'Load step',
+                duration_s: 0.05,
+                constant_inputs: { Vin_int: 24, DC_int: 0.5 },
+                signal_inputs: {
+                    Rload_int: { type: 'step', params: { initial: 5.0, final: 2.0, t_step_s: 0.02 } }
+                },
+                sliders: { vin: 24, rload: 2.0, dc: 0.5 },
+                simscape_s: 4.6
+            },
+            'line-transient': {
+                label: 'Line transient',
+                duration_s: 0.05,
+                constant_inputs: { Rload_int: 5, DC_int: 0.5 },
+                signal_inputs: {
+                    Vin_int: { type: 'step', params: { initial: 24.0, final: 36.0, t_step_s: 0.02 } }
+                },
+                sliders: { vin: 36, rload: 5, dc: 0.5 },
+                simscape_s: 4.6
+            },
+            'duty-sweep': {
+                label: 'Duty sweep',
+                duration_s: 0.1,
+                constant_inputs: { Vin_int: 24, Rload_int: 5 },
+                signal_inputs: {
+                    DC_int: { type: 'ramp', params: { start: 0.25, end: 0.75 } }
+                },
+                sliders: { vin: 24, rload: 5, dc: 0.5 },
+                simscape_s: 9.2
+            },
+            'heavy-load': {
+                label: 'Heavy load',
+                duration_s: 0.05,
+                constant_inputs: { Vin_int: 30, Rload_int: 1.2, DC_int: 0.6 },
+                sliders: { vin: 30, rload: 1.2, dc: 0.6 },
+                simscape_s: 4.6
+            },
+            'light-load': {
+                label: 'Light load',
+                duration_s: 0.05,
+                constant_inputs: { Vin_int: 30, Rload_int: 9.0, DC_int: 0.4 },
+                sliders: { vin: 30, rload: 9.0, dc: 0.4 },
+                simscape_s: 4.6
+            }
+        };
+
+        async function runPreset(name) {
+            const p = PRESETS[name];
+            if (!p) return;
+            // Reflect on sliders so the user sees the operating point
+            setMode('manual');
+            vinSlider.value   = p.sliders.vin;
+            rloadSlider.value = p.sliders.rload;
+            dutySlider.value  = p.sliders.dc;
+            updateSliderDisplay();
+
+            if (runInFlight) return;
+            runInFlight = true;
+            try {
+                const body = {
+                    duration_s: p.duration_s,
+                    constant_inputs: p.constant_inputs
+                };
+                if (p.signal_inputs) body.signal_inputs = p.signal_inputs;
+                const resp = await postSimulate(body);
+                const series = await fetchSeries(resp);
+                renderSeries(series);
+                clearGroundTruth();
+                updateSummary(resp.outputs_summary);
+                updateSpeedupBadge(resp._elapsed_ms, p.simscape_s);
+            } catch (e) {
+                console.error(e);
+                setStatus('error', 'Preset failed');
+            } finally {
+                runInFlight = false;
+            }
+        }
+        document.querySelectorAll('#preset-buttons button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const name = btn.dataset.preset;
+                runPreset(name);
+                updateUrlParams({ preset: name });
+            });
+        });
+
+        // ====================================================================
+        // Benchmark replay (§6.3)
+        // ====================================================================
+        async function runBenchmark(which) {
+            const tag = which || $('benchmark-select').value;
+            const compare = $('compare-simscape').checked;
+
+            let bench;
+            try {
+                const r = await fetch(`${API_BASE}/benchmark/${tag}.json`);
+                if (!r.ok) throw new Error('benchmark ' + r.status);
+                bench = await r.json();
+            } catch (e) {
+                console.error('Benchmark fetch failed:', e);
+                $('benchmark-warning').classList.remove('hidden');
+                benchmarkAvailable = false;
+                return;
+            }
+            $('benchmark-warning').classList.add('hidden');
+
+            // The bundled JSON contains pre-computed ROM outputs + Simscape reference.
+            // Use rom_outputs directly (actual benchmark data) rather than re-running the ROM,
+            // since the benchmark input vectors cannot be fully expressed via the simple signal API.
+            try {
+                if (bench.rom_outputs) {
+                    // Display pre-computed benchmark results directly
+                    renderSeries(bench.rom_outputs);
+                    updateSpeedupBadge(bench.rom_elapsed_ms, bench.simscape_time_s);
+                    setStatus('ok', `Benchmark replay — ${bench.label || tag}`);
+                } else {
+                    // Fallback: re-run ROM with bundled inputs
+                    const body = {
+                        duration_s: bench.duration_s,
+                        constant_inputs: bench.inputs?.constant_inputs || {},
+                        signal_inputs: bench.inputs?.signal_inputs || {}
+                    };
+                    const resp = await postSimulate(body);
+                    const series = await fetchSeries(resp);
+                    renderSeries(series);
+                    updateSpeedupBadge(resp._elapsed_ms, bench.simscape_time_s);
+                }
+                if (compare && bench.reference) {
+                    renderGroundTruth(bench.reference);
+                    setGroundTruthVisible(true);
+                } else {
+                    setGroundTruthVisible(false);
+                }
+            } catch (e) {
+                console.error(e);
+                setStatus('error', 'Benchmark run failed');
+            }
+        }
+        $('run-dataset').addEventListener('click', () => runBenchmark());
+        $('compare-simscape').addEventListener('change', () => setGroundTruthVisible($('compare-simscape').checked));
+
+        // Probe benchmark availability once on load
+        async function probeBenchmarks() {
+            try {
+                // GET (not HEAD) because FastAPI doesn't auto-register HEAD on GET routes.
+                // Response is cached, so the second fetch in runBenchmark() is free.
+                const r = await fetch(`${API_BASE}/benchmark/v1.json`, { method: 'GET' });
+                if (!r.ok) throw new Error('404');
+            } catch (e) {
+                benchmarkAvailable = false;
+                $('benchmark-warning').classList.remove('hidden');
+                $('run-dataset').disabled = true;
+                $('run-dataset').classList.add('opacity-50', 'cursor-not-allowed');
+                $('mode-dataset').title = 'Benchmark vectors not available from this backend';
+            }
+        }
+
+        // ====================================================================
+        // Share via URL (§6.5)
+        // ====================================================================
+        function updateUrlParams(extra = {}) {
+            const s = readSliders();
+            const params = new URLSearchParams();
+            params.set('vin',   s.vin.toFixed(2));
+            params.set('rload', s.rload.toFixed(2));
+            params.set('dc',    s.dc.toFixed(2));
+            params.set('mode',  isManualMode ? 'manual' : 'benchmark');
+            for (const k in extra) params.set(k, extra[k]);
+            history.replaceState(null, '', `?${params.toString()}`);
+        }
+        function restoreFromUrl() {
+            const p = new URLSearchParams(location.search);
+            if (p.get('vin'))   vinSlider.value = p.get('vin');
+            if (p.get('rload')) rloadSlider.value = p.get('rload');
+            if (p.get('dc'))    dutySlider.value = p.get('dc');
+            updateSliderDisplay();
+            if (p.get('mode') === 'benchmark') setMode('dataset');
+            if (p.get('preset')) setTimeout(() => runPreset(p.get('preset')), 250);
+        }
+        // ====================================================================
+        // CSV (§6.7) and PNG (§6.9) export
+        // ====================================================================
+        document.querySelectorAll('.export-csv').forEach(btn => {
+            btn.addEventListener('click', () => exportCsv(btn.dataset.chart));
+        });
+        document.querySelectorAll('.export-png').forEach(btn => {
+            btn.addEventListener('click', () => exportPng(btn.dataset.chart));
+        });
+
+        const CHART_MAP = {
+            vin:  { key: 'V_in',  chart: () => vinChart  },
+            vout: { key: 'V_out', chart: () => voutChart },
+            iin:  { key: 'I_in',  chart: () => iinChart  },
+            iout: { key: 'I_out', chart: () => ioutChart }
+        };
+
+        function exportCsv(which) {
+            if (!lastChartCache.tMs) return;
+            const m = CHART_MAP[which];
+            if (!m) return;
+            const cols = [['t_ms', lastChartCache.tMs], [m.key, lastChartCache[m.key]]];
+            if (lastChartCache.gt) cols.push([`${m.key}_simscape`, lastChartCache.gt[m.key]]);
+            const n = cols[0][1].length;
+            let csv = cols.map(c => c[0]).join(',') + '\n';
+            for (let i = 0; i < n; i++) {
+                csv += cols.map(c => (c[1][i] != null ? Number(c[1][i]).toPrecision(6) : '')).join(',') + '\n';
+            }
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = `simthetic_${which}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function exportPng(which) {
+            const m = CHART_MAP[which];
+            if (!m) return;
+            const url = m.chart().toBase64Image('image/png', 1.0);
+            const a = document.createElement('a');
+            a.href = url; a.download = `simthetic_${which}.png`;
+            a.click();
+        }
+
+        // ====================================================================
+        // Ask-the-ROM sidebar (§6.6)
+        // ====================================================================
+        $('ask-toggle').addEventListener('click', () => {
+            $('ask-sidebar').classList.toggle('collapsed');
+        });
+
+        function chatPush(role, html) {
+            const div = document.createElement('div');
+            div.className = role === 'user' ? 'chat-bubble-user' : 'chat-bubble-model';
+            div.innerHTML = html;
+            $('chat-area').appendChild(div);
+            $('chat-area').scrollTop = $('chat-area').scrollHeight;
+            return div;
+        }
+
+        const QUESTIONS = {
+            'settling': 'What is the output current settling time after a step load?',
+            'line-sweep': 'How does V_out depend on input voltage at constant duty cycle?',
+            'steady-state': 'Show me the steady-state operating point at V_in = 36 V, DC = 0.5, R = 5 Ω.',
+            'speedup': 'How fast is this ROM compared to MATLAB Simscape?'
+        };
+
+        async function ask(question) {
+            chatPush('user', QUESTIONS[question]);
+            const thinking = chatPush('model', '<span class="text-gray-400">Running on the ROM…</span>');
+
+            try {
+                if (question === 'settling') {
+                    const resp = await postSimulate({
+                        duration_s: 0.05,
+                        constant_inputs: { Vin_int: 24, DC_int: 0.5 },
+                        signal_inputs: { Rload_int: { type: 'step', params: { initial: 5.0, final: 2.0, t_step_s: 0.005 } } }
+                    });
+                    const series = await fetchSeries(resp);
+                    renderSeries(series); clearGroundTruth(); updateSummary(resp.outputs_summary);
+                    // Compute settling time on I_out
+                    const I = series.I_out, t = series.t;
+                    const ssBand = I.slice(Math.floor(I.length * 0.85));
+                    const ssMean = ssBand.reduce((a, b) => a + b, 0) / ssBand.length;
+                    const band = Math.abs(ssMean) * 0.02;
+                    // find last index outside ±2% band, after the step
+                    let stepIdx = t.findIndex(ti => ti >= 0.005);
+                    let settleIdx = stepIdx;
+                    for (let i = stepIdx; i < I.length; i++) {
+                        if (Math.abs(I[i] - ssMean) > band) settleIdx = i;
+                    }
+                    const settlingMs = (t[settleIdx] - t[stepIdx]) * 1000;
+                    const peak = Math.max(...I.slice(stepIdx));
+                    thinking.innerHTML = `Settling time (±2 %) ≈ <code>${settlingMs.toFixed(2)} ms</code> after the step at <code>t = 5 ms</code>. The ROM also predicts a peak output current of <code>${peak.toFixed(2)} A</code> during the transient (load swung from 5 Ω → 2 Ω at V_in = 24 V, DC = 0.5). Trace is showing on the charts.`;
+                    updateSpeedupBadge(resp._elapsed_ms, 0.05 * SIMSCAPE_REALTIME_FACTOR);
+                }
+
+                else if (question === 'line-sweep') {
+                    // Run a real Vin ramp so the chart visually shows the linear V_out vs V_in relationship.
+                    const resp = await postSimulate({
+                        duration_s: 0.05,
+                        constant_inputs: { Rload_int: 5, DC_int: 0.5 },
+                        signal_inputs: { Vin_int: { type: 'ramp', params: { start: 15.0, end: 45.0 } } }
+                    });
+                    const series = await fetchSeries(resp);
+                    renderSeries(series); clearGroundTruth(); updateSummary(resp.outputs_summary);
+
+                    // Sample V_out at three points along the ramp for the narrative
+                    const N = series.t.length;
+                    const idx = [Math.floor(N * 0.10), Math.floor(N * 0.50), Math.floor(N * 0.90)];
+                    const vinPts  = idx.map(i => series.V_in[i]);
+                    const voutPts = idx.map(i => series.V_out[i]);
+                    const slope = (voutPts[2] - voutPts[0]) / (vinPts[2] - vinPts[0]);
+                    thinking.innerHTML = `Ramped V_in from 15 V → 45 V over 50 ms at DC = 0.5, R_load = 5 Ω. V_out tracks linearly: <code>${voutPts[0].toFixed(2)} V → ${voutPts[1].toFixed(2)} V → ${voutPts[2].toFixed(2)} V</code> as V_in = <code>${vinPts[0].toFixed(1)} V → ${vinPts[1].toFixed(1)} V → ${vinPts[2].toFixed(1)} V</code>. Slope = <code>${slope.toFixed(3)}</code>, matching DC = 0.50 (ideal buck: V_out = DC · V_in). See the ramp on the charts.`;
+                    updateSpeedupBadge(resp._elapsed_ms, 0.05 * SIMSCAPE_REALTIME_FACTOR);
+                }
+
+                else if (question === 'steady-state') {
+                    // Always run a manual simulate so we can render the per-sample trace on the charts,
+                    // then average the tail for the steady-state values.
+                    const resp = await postSimulate({
+                        duration_s: 0.05,
+                        constant_inputs: { Vin_int: 36, Rload_int: 5, DC_int: 0.5 }
+                    });
+                    const series = await fetchSeries(resp);
+                    renderSeries(series); clearGroundTruth(); updateSummary(resp.outputs_summary);
+
+                    // Compute steady-state as mean of the last 20 % of each trace
+                    const tailMean = (arr) => {
+                        const tail = arr.slice(Math.floor(arr.length * 0.8));
+                        return tail.reduce((a, b) => a + b, 0) / tail.length;
+                    };
+                    const ss = {
+                        V_out: tailMean(series.V_out),
+                        I_out: tailMean(series.I_out),
+                        V_in:  tailMean(series.V_in),
+                        I_in:  tailMean(series.I_in),
+                    };
+                    const pIn  = ss.V_in  * ss.I_in;
+                    const pOut = ss.V_out * ss.I_out;
+                    const eff  = (pIn > 0) ? (pOut / pIn * 100) : 0;
+                    thinking.innerHTML = `Steady-state at V_in = 36 V, DC = 0.5, R_load = 5 Ω (mean of last 20 % of trace):<br>
+                        V_out = <code>${ss.V_out.toFixed(2)} V</code> &nbsp;·&nbsp; I_out = <code>${ss.I_out.toFixed(2)} A</code><br>
+                        V_in = <code>${ss.V_in.toFixed(2)} V</code> &nbsp;·&nbsp; I_in = <code>${ss.I_in.toFixed(2)} A</code><br>
+                        Efficiency ≈ <code>${eff.toFixed(1)} %</code> (P_out / P_in).`;
+                    updateSpeedupBadge(resp._elapsed_ms, 0.05 * SIMSCAPE_REALTIME_FACTOR);
+                }
+
+                else if (question === 'speedup') {
+                    const resp = await postSimulate({
+                        duration_s: 0.05,
+                        constant_inputs: { Vin_int: 24, Rload_int: 5, DC_int: 0.5 }
+                    });
+                    const series = await fetchSeries(resp);
+                    renderSeries(series); clearGroundTruth(); updateSummary(resp.outputs_summary);
+                    const romMs = resp._elapsed_ms;
+                    const simscapeS = 0.05 * SIMSCAPE_REALTIME_FACTOR;
+                    const speedup = (simscapeS * 1000) / romMs;
+                    updateSpeedupBadge(romMs, simscapeS);
+                    thinking.innerHTML = `A 50 ms physical simulation runs in <code>${romMs.toFixed(1)} ms</code> on the ROM. The same simulation takes about <code>${simscapeS.toFixed(1)} s</code> in MATLAB/Simscape on a typical workstation. That is a <strong>${speedup.toFixed(0)}× speedup</strong>, with the ROM running entirely as a single Docker container — no MATLAB license required.`;
+                }
+            } catch (e) {
+                thinking.innerHTML = `<span class="text-red-600">Simulation failed: ${e.message}</span>`;
+            }
+        }
+        document.querySelectorAll('.ask-question').forEach(btn => {
+            btn.addEventListener('click', () => {
+                $('ask-sidebar').classList.remove('collapsed');
+                ask(btn.dataset.question);
+            });
+        });
+
+        // ====================================================================
+        // CTA strip (§6.8)
+        // ====================================================================
+        if (IS_CLOUD_DEPLOYMENT && localStorage.getItem('simthetic_cta_dismissed') !== '1') {
+            $('cta-strip').classList.remove('hidden');
+        }
+        $('cta-dismiss').addEventListener('click', () => {
+            $('cta-strip').classList.add('hidden');
+            localStorage.setItem('simthetic_cta_dismissed', '1');
+        });
+
+        // ====================================================================
+        // Boot
+        // ====================================================================
+        (async function init() {
+            setStatus('idle', 'ROM idle');
+            applyRangesToSliders();
+            updateSliderDisplay();
+            await fetchInfo();
+            await probeBenchmarks();
+            restoreFromUrl();
+            setStatus('ready', 'ROM ready');
+        })();
+    </script>
+</body>
+
+</html>

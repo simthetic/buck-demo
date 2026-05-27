@@ -1,0 +1,44 @@
+# Dockerfile.gui-extension — overlay image that adds the browser GUI + REST API
+# on top of the headless simthetic/my-rom:v1 worker.
+#
+# Base image is a stdin/stdout JSON worker: `docker run -i simthetic/my-rom:v1`
+# expects one JSON request on stdin and produces one JSON response on stdout.
+# That works for the host-side MCP server but is not directly usable from a
+# browser. This image bolts a small FastAPI server (docker/server.py) onto the
+# same container, importing the simthetic_runtime module already shipped in
+# /app/src/ of the base image to load and drive the ROM.
+#
+# Build context: repo root (simthetic-public/).
+#
+#   docker build -f docker/Dockerfile.gui-extension -t simthetic/my-rom:v1-with-gui .
+#
+# Run:
+#
+#   docker run -p 8000:8000 simthetic/my-rom:v1-with-gui
+#   open http://localhost:8000
+
+FROM simthetic/my-rom:v1
+
+# We need fastapi + uvicorn for the HTTP server. numpy is already installed
+# by the base image.
+RUN pip install --no-cache-dir \
+        "fastapi>=0.110" \
+        "uvicorn[standard]>=0.27" \
+        "pydantic>=2.0"
+
+# Static GUI assets.
+COPY gui/index.html /app/static/index.html
+COPY gui/logo.png   /app/static/logo.png
+
+# Pre-converted benchmark JSONs (Simscape reference + ROM outputs).
+# Generated from raw .mat files via notebooks/benchmarks/buck_accuracy_benchmark.ipynb.
+COPY benchmarks/v1.json /app/benchmarks/v1.json
+COPY benchmarks/v2.json /app/benchmarks/v2.json
+
+# The HTTP server.
+COPY docker/server.py /app/server.py
+
+# Override the base ENTRYPOINT (which was the stdin/stdout worker).
+ENTRYPOINT []
+EXPOSE 8000
+CMD ["uvicorn", "server:app", "--app-dir", "/app", "--host", "0.0.0.0", "--port", "8000"]
