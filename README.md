@@ -16,7 +16,7 @@ This repo is the public demo kit for Simthetic's Hybrid Reduced Order Models (RO
 
 ## Talk to your converter — Claude Code + MCP
 
-Drop the included [`.mcp.json`](.mcp.json) into any project, open Claude Code, and ask:
+Drop the included [`mcp.json`](mcp.json) into any project, open Claude Code, and ask:
 
 > *"Run a 50 ms simulation with Vin = 36 V, DC = 0.5, Rload = 5 Ω and show me V_out."*
 >
@@ -72,7 +72,7 @@ simthetic-public/
 ├── README.md                 ← you are here
 ├── LICENSE                   ← MIT (covers everything in this repo)
 ├── LICENSE-NOTICE.md         ← ROM binary licence (separate, evaluation-only)
-├── .mcp.json                 ← drop into your project for Claude Code integration
+├── mcp.json                  ← drop into your project for Claude Code integration
 ├── benchmarks/               ← datasheet reproducibility kit
 │   ├── README.md
 │   ├── buck_accuracy_benchmark.ipynb

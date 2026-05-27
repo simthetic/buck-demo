@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "simthetic-rom": {
+      "type": "stdio",
+      "command": "python",
+      "args": [
+        "scripts/mcp_bridge.py",
+        "--base-url", "http://localhost:8000"
+      ]
+    }
+  }
+}
