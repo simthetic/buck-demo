@@ -432,7 +432,13 @@
         // ====================================================================
         // Configuration
         // ====================================================================
-        const API_BASE = '';                // empty = same origin (works for both local and cloud-proxy deployments)
+        // Auto-detect the mount path so the GUI works both at the root
+        // (Cloud Run direct URL, localhost:8000) and behind a reverse proxy
+        // that mounts it under a subpath (e.g. simthetic.io/demo).
+        const API_BASE = (() => {
+            const p = window.location.pathname.replace(/\/+$/, '');
+            return p && p !== '/index.html' ? p : '';
+        })();
         const IS_CLOUD_DEPLOYMENT = false;   // cloud deployment — shows CTA strip
         const SIMSCAPE_REALTIME_FACTOR = 92; // Simscape ≈ 92× slower than real time (calibrated: 23.4 s for a 250 ms simulation). Used when an explicit Simscape time is not bundled.
 

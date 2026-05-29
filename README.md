@@ -52,6 +52,25 @@ Same GUI, same ROM, rate-limited. Use this if you don't want to install Docker.
 
 ---
 
+## The system being modelled
+
+The ROM is trained on the **synchronous DCDC buck converter** below: two complementarily-driven MOSFETs (10 kHz PWM, no dead-time), a step-down inductor, an output capacitor, and a variable resistive load. All passives are ideal (zero DCR/ESR). Switching dynamics are not modelled — the ROM operates at `dt = 50 µs` and captures averaged behaviour.
+
+![Synchronous Buck Converter](docs/dcdc_buck_circuit.png)
+
+| | Value | | | Value |
+|---|---|---|---|---|
+| **`f_s`** | 10 kHz | | **`C_in`** | 1 µF |
+| **Nominal `V_in`** | 40 V | | **`L`** | ≈ 1 mH |
+| **Nominal `V_out`** | 16 V | | **`C_out`** | 12.5 µF |
+| **`R_DS(on)`** | 10 mΩ | | **`R_load`** (nominal) | 0.5 Ω |
+
+**Live demo operating envelope:** `V_in ∈ [10, 45] V`, `R_load ∈ [1, 10] Ω`, `DC ∈ [0.2, 0.8]`.
+
+Full reproducibility kit — MOSFET model parameters, design formulas, MATLAB design script, and notes for rebuilding in LTspice / PLECS / PSIM / Modelica — in [`docs/BUCK_CIRCUIT.md`](docs/BUCK_CIRCUIT.md).
+
+---
+
 ## Reproduce the datasheet numbers
 
 Every number in `docs/ST-DS-2026-001.pdf` was produced from the files in [`benchmarks/`](benchmarks/). To re-derive them on your machine:
